@@ -382,3 +382,14 @@ imp_folder_paths = [ '/Users/emmadyer/Desktop/long_ibd_data/data/uc_imputed',
 
 for i, df in enumerate(dfs):
     dc_wknn_imputer(df, split_folders[i], imp_folder_paths[i], imp_file_paths[i])
+
+disease_codes = [2,1,0]
+all_imp = []
+
+for i, f in enumerate(imp_file_paths):
+    df = pd.read_csv(f)
+    df['ibd_disease_code'] = disease_codes[i]
+    all_imp.append(df)
+
+all_imputed = pd.concat(all_imp, axis=0)
+all_imputed.to_csv('/Users/emmadyer/Desktop/long_ibd_data/data/v2_all_labs_imputed.csv', index = False)

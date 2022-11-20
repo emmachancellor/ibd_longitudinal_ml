@@ -50,7 +50,48 @@ def get_mean_val_dict(df, lab_value_names):
     return means_dict
 
 
-def normalize_and_split(df, folder_path, lab_value_names):
+def whole_population_normalize_and_split(df, folder_path, lab_value_names):
+    '''  
+    Min-max normalize values column wise in a given DataFrame and 
+    separates rows into individual DataFrames grouped by a
+    given patient ID. The individual DataFrame contains all rows 
+    from the original DataFrame for a given patient ID.
+
+    Inputs:
+    df (DataFrame): Contains the values to be normalized. Must
+    also include an identifier linking any rows to the same individual.
+    file_path
+    folder_path (str): Path to a folder to save individual DataFrames
+    saved as .csv files
+    lab_value_names (list): list of strings that correspond to 
+    column headers of each lab value in the DataFrame
+
+    Outputs:
+    Returns nothing, but saves individual DataFrames as .csv
+    files in the specified folder given by the folder_path
+    parameter.
+    '''
+    mean_norm_values = get_mean_val_dict(df, lab_value_names)
+    na_reference = df.copy().isnull()
+    for i, lab in enumerate(lab_value_names):
+        values = df[lab].dropna()
+        min_lab = min(values)
+        max_lab = max(values)
+        for row in range(len(df)):
+            check_missing = na_reference.loc[row, lab]
+            if check_missing == False:
+                value = df.loc[row, lab]
+                norm_val = minmax_scale(value, min_lab, max_lab)
+                df.loc[row, lab] = norm_val
+    patient_id_lst = list(df.patient_id.unique())
+    for patient in patient_id_lst:
+        patient_df = df[df['patient_id'] == patient].reset_index(drop=True)
+        path = folder_path + str(patient) + '.csv'
+        patient_df.to_csv(path, index=False)
+    return print("Individual DataFrames saved to: ", folder_path)
+
+
+def indivdual_normalize_and_split(df, folder_path, lab_value_names):
     '''  
     Min-max normalize values column wise in a given DataFrame and 
     separates rows into individual DataFrames grouped by a
@@ -73,20 +114,24 @@ def normalize_and_split(df, folder_path, lab_value_names):
     '''
     mean_norm_values = get_mean_val_dict(df, lab_value_names)
     patient_id_lst = list(df.patient_id.unique())
-    na_reference = df.copy().isnull()
-    for i, lab in enumerate(lab_value_names):
-        values = df[lab].dropna()
-        min_lab = min(values)
-        max_lab = max(values)
-        for row in range(len(df)):
-            check_missing = na_reference.loc[row, lab]
-            if check_missing == False:
-                value = df.loc[row, lab]
-                norm_val = minmax_scale(value, min_lab, max_lab)
-                df.loc[row, lab] = norm_val
-    patient_id_lst = list(df.patient_id.unique())
     for patient in patient_id_lst:
         patient_df = df[df['patient_id'] == patient].reset_index(drop=True)
+        na_reference_df = patient_df.copy()
+        na_reference_df = na_reference_df.isnull()
+        for i, lab in enumerate(lab_value_names):
+            total_missing = patient_df[lab].isnull().sum()
+            if total_missing == 5: 
+                continue
+            else:
+                values = patient_df[lab].dropna()
+                min_lab = min(values)
+                max_lab = max(values)
+                for v in range(0, patient_df.shape[0]):
+                    is_missing = na_reference_df.loc[v, lab]
+                    if is_missing == False:
+                        value = patient_df.loc[v, lab]
+                        norm_val = minmax_scale(value, min_lab, max_lab)
+                        patient_df.loc[v, lab] = norm_val
         path = folder_path + str(patient) + '.csv'
         patient_df.to_csv(path, index=False)
     return print("Individual DataFrames saved to: ", folder_path)
@@ -306,7 +351,7 @@ def combine_dataframes(imputed_folder_path, imputed_file_path):
     return print("Imputed DataFrames have been combined and saved as: ", imputed_file_path)
 
 ### Main Function ###
-def dc_wknn_imputer(df, folder_path, imputed_folder_path, imputed_file_path):
+def dc_wknn_imputer(df, folder_path, imputed_folder_path, imputed_file_path, level='individual'):
     ''' 
     Performs distance correlation weighted KNN imputation
     on a given dataset. Note: the dataset must contain 
@@ -319,6 +364,9 @@ def dc_wknn_imputer(df, folder_path, imputed_folder_path, imputed_file_path):
     files can be saved after splitting the larger dataframe into
     patient-level dataframes.
     imputed_file_path (str): Path to save single .csv file of combined DataFrames
+    level (str): Denotes which normalize and split method to use. 'individual' 
+    will split the dataframe and normalize patients at the patient level.
+    'whole_pop' will normalize values across the whole dataframe before splitting at the patient level.
 
     Outputs: 
     Returns nothing. Imputed individual DataFrames are saved in the 
@@ -326,7 +374,10 @@ def dc_wknn_imputer(df, folder_path, imputed_folder_path, imputed_file_path):
     '''
     lab_value_names = list(df.columns.values)
     lab_value_names = lab_value_names[1:-1]
-    normalize_and_split(df, folder_path, lab_value_names)
+    if level == 'individual':
+        indivdual_normalize_and_split(df, folder_path, lab_value_names)
+    if level == 'whole_pop':
+        whole_population_normalize_and_split(df, folder_path, lab_value_names)
     correlation_dict = get_correlation_dict(df, lab_value_names)
     correlation_matrix = get_correlation_matrix(df, lab_value_names)
     means_dict = get_mean_val_dict(df, lab_value_names)

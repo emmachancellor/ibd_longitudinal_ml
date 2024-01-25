@@ -1,4 +1,4 @@
-# Predicting the Development of Inflammatory Bowel Disease from Routine Blood Tests
+# Predicting the Development of Inflammatory Bowel Disease from Routine Blood Tests 🩸
 ### A Weighted K-Nearest Neighbor Data Imputation Approach for Time Series Data
 
 This repository describes a method for imputing missing data values in longitudinal tabular data.
